@@ -1,93 +1,93 @@
 import ava from 'ava'
-import Corestore from 'corestore'
+import Chainstore from '@web4/chainstore'
 import ram from 'random-access-memory'
-import Autobee from '../index.js'
+import Autotree from '../index.js'
 
 let store
 let writer1
 let index
-let autobee
+let multitree
 
 ava.before(async () => {
-  store = new Corestore(ram)
+  store = new Chainstore(ram)
   writer1 = store.get({ name: 'writer1' })
   index = store.get({ name: 'index' })
   await writer1.ready()
   
-  autobee = new Autobee({inputs: [writer1], defaultInput: writer1, indexes: index})
-  await autobee.ready()
+  multitree = new Autotree({inputs: [writer1], defaultInput: writer1, indexes: index})
+  await multitree.ready()
 })
 
 ava.serial('Write, read, delete values', async (t) => {
-  await autobee.put('a', 'foo')
-  await autobee.put('b', 'bar')
-  t.is((await autobee.get('a')).value, 'foo')
-  t.is((await autobee.get('b')).value, 'bar')
-  t.is((await autobee.bee(writer1).get('a')).value, 'foo')
-  t.is((await autobee.bee(writer1).get('b')).value, 'bar')
+  await multitree.put('a', 'foo')
+  await multitree.put('b', 'bar')
+  t.is((await multitree.get('a')).value, 'foo')
+  t.is((await multitree.get('b')).value, 'bar')
+  t.is((await multitree.tree(writer1).get('a')).value, 'foo')
+  t.is((await multitree.tree(writer1).get('b')).value, 'bar')
 
-  for await (const item of autobee.createReadStream()) {
+  for await (const item of multitree.createReadStream()) {
     if (item.key === 'a') t.is(item.value, 'foo')
     if (item.key === 'b') t.is(item.value, 'bar')
   }
-  for await (const item of autobee.bee(writer1).createReadStream()) {
+  for await (const item of multitree.tree(writer1).createReadStream()) {
     if (item.key === 'a') t.is(item.value, 'foo')
     if (item.key === 'b') t.is(item.value, 'bar')
   }
 
-  await autobee.put('b', 'BAR')
-  await autobee.put('a', 'FOO')
-  t.is((await autobee.get('a')).value, 'FOO')
-  t.is((await autobee.get('b')).value, 'BAR')
-  t.is((await autobee.bee(writer1).get('a')).value, 'FOO')
-  t.is((await autobee.bee(writer1).get('b')).value, 'BAR')
+  await multitree.put('b', 'BAR')
+  await multitree.put('a', 'FOO')
+  t.is((await multitree.get('a')).value, 'FOO')
+  t.is((await multitree.get('b')).value, 'BAR')
+  t.is((await multitree.tree(writer1).get('a')).value, 'FOO')
+  t.is((await multitree.tree(writer1).get('b')).value, 'BAR')
 
-  await autobee.del('a')
-  await autobee.del('b')
-  t.is(await autobee.get('a'), null)
-  t.is(await autobee.get('b'), null)
-  t.is(await autobee.bee(writer1).get('a'), null)
-  t.is(await autobee.bee(writer1).get('b'), null)
+  await multitree.del('a')
+  await multitree.del('b')
+  t.is(await multitree.get('a'), null)
+  t.is(await multitree.get('b'), null)
+  t.is(await multitree.tree(writer1).get('a'), null)
+  t.is(await multitree.tree(writer1).get('b'), null)
 })
 
 ava.serial('Write, read, delete sub() values', async (t) => {
-  await autobee.sub('test').put('a', 'foo')
-  await autobee.sub('test').put('b', 'bar')
-  t.is((await autobee.sub('test').get('a')).value, 'foo')
-  t.is((await autobee.sub('test').get('b')).value, 'bar')
-  t.is((await autobee.bee(writer1).sub('test').get('a')).value, 'foo')
-  t.is((await autobee.bee(writer1).sub('test').get('b')).value, 'bar')
+  await multitree.sub('test').put('a', 'foo')
+  await multitree.sub('test').put('b', 'bar')
+  t.is((await multitree.sub('test').get('a')).value, 'foo')
+  t.is((await multitree.sub('test').get('b')).value, 'bar')
+  t.is((await multitree.tree(writer1).sub('test').get('a')).value, 'foo')
+  t.is((await multitree.tree(writer1).sub('test').get('b')).value, 'bar')
 
-  for await (const item of autobee.sub('test').createReadStream()) {
+  for await (const item of multitree.sub('test').createReadStream()) {
     if (item.key === 'a') t.is(item.value, 'foo')
     if (item.key === 'b') t.is(item.value, 'bar')
   }
-  for await (const item of autobee.bee(writer1).sub('test').createReadStream()) {
+  for await (const item of multitree.tree(writer1).sub('test').createReadStream()) {
     if (item.key === 'a') t.is(item.value, 'foo')
     if (item.key === 'b') t.is(item.value, 'bar')
   }
 
-  await autobee.sub('test').put('b', 'BAR')
-  await autobee.sub('test').put('a', 'FOO')
-  await autobee.sub('test2').put('a', 'another')
-  await autobee.sub('test2').put('b', 'value')
-  t.is((await autobee.sub('test').get('a')).value, 'FOO')
-  t.is((await autobee.sub('test').get('b')).value, 'BAR')
-  t.is((await autobee.sub('test2').get('a')).value, 'another')
-  t.is((await autobee.sub('test2').get('b')).value, 'value')
-  t.is((await autobee.bee(writer1).sub('test').get('a')).value, 'FOO')
-  t.is((await autobee.bee(writer1).sub('test').get('b')).value, 'BAR')
-  t.is((await autobee.bee(writer1).sub('test2').get('a')).value, 'another')
-  t.is((await autobee.bee(writer1).sub('test2').get('b')).value, 'value')
+  await multitree.sub('test').put('b', 'BAR')
+  await multitree.sub('test').put('a', 'FOO')
+  await multitree.sub('test2').put('a', 'another')
+  await multitree.sub('test2').put('b', 'value')
+  t.is((await multitree.sub('test').get('a')).value, 'FOO')
+  t.is((await multitree.sub('test').get('b')).value, 'BAR')
+  t.is((await multitree.sub('test2').get('a')).value, 'another')
+  t.is((await multitree.sub('test2').get('b')).value, 'value')
+  t.is((await multitree.tree(writer1).sub('test').get('a')).value, 'FOO')
+  t.is((await multitree.tree(writer1).sub('test').get('b')).value, 'BAR')
+  t.is((await multitree.tree(writer1).sub('test2').get('a')).value, 'another')
+  t.is((await multitree.tree(writer1).sub('test2').get('b')).value, 'value')
 
-  await autobee.sub('test').del('a')
-  await autobee.sub('test').del('b')
-  t.is(await autobee.sub('test').get('a'), null)
-  t.is(await autobee.sub('test').get('b'), null)
-  t.is((await autobee.sub('test2').get('a')).value, 'another')
-  t.is((await autobee.sub('test2').get('b')).value, 'value')
-  t.is(await autobee.bee(writer1).sub('test').get('a'), null)
-  t.is(await autobee.bee(writer1).sub('test').get('b'), null)
-  t.is((await autobee.bee(writer1).sub('test2').get('a')).value, 'another')
-  t.is((await autobee.bee(writer1).sub('test2').get('b')).value, 'value')
+  await multitree.sub('test').del('a')
+  await multitree.sub('test').del('b')
+  t.is(await multitree.sub('test').get('a'), null)
+  t.is(await multitree.sub('test').get('b'), null)
+  t.is((await multitree.sub('test2').get('a')).value, 'another')
+  t.is((await multitree.sub('test2').get('b')).value, 'value')
+  t.is(await multitree.tree(writer1).sub('test').get('a'), null)
+  t.is(await multitree.tree(writer1).sub('test').get('b'), null)
+  t.is((await multitree.tree(writer1).sub('test2').get('a')).value, 'another')
+  t.is((await multitree.tree(writer1).sub('test2').get('b')).value, 'value')
 })

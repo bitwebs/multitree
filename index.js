@@ -1,26 +1,26 @@
 import codecs from 'codecs'
-import Autobase from 'autobase'
-import { InputNode } from 'autobase/lib/nodes/index.js'
-import Hyperbee from 'hyperbee'
-import HyperbeeMessages from 'hyperbee/lib/messages.js'
+import Bitstream from '@web4/bitstream'
+import { InputNode } from '@web4/bitstream/lib/nodes/index.js'
+import Bittree from '@web4/bittree'
+import BittreeMessages from '@web4/bittree/lib/messages.js'
 
-export default class Autobee {
+export default class Multitree {
   constructor ({inputs, defaultInput, indexes, valueEncoding} = {}) {
     inputs = inputs || []
     valueEncoding = valueEncoding || 'json'
     this._valueEncoding = valueEncoding
     this._valueEncoder = codecs(valueEncoding)
     
-    this.autobase = new Autobase(inputs, {indexes, input: defaultInput})
+    this.bitstream = new Bitstream(inputs, {indexes, input: defaultInput})
 
     // TODO should this.index possibly come from indexes?
-    this.index = this.autobase.createRebasedIndex({
+    this.index = this.bitstream.createRebasedIndex({
       unwrap: true,
       apply: this._apply.bind(this)
     })
 
-    this._inputBees = new Map()
-    this.indexBee = new Hyperbee(this.index, {
+    this._inputTrees = new Map()
+    this.indexTree = new Bittree(this.index, {
       extension: false,
       keyEncoding: 'utf-8',
       valueEncoding
@@ -28,24 +28,24 @@ export default class Autobee {
   }
 
   async ready () {
-    await this.autobase.ready()
+    await this.bitstream.ready()
   }
 
   get writable () {
-    return !!this.autobase.inputs.find(core => core.writable)
+    return !!this.bitstream.inputs.find(chain => chain.writable)
   }
 
   get config () {
     return {
-      inputs: this.autobase.inputs,
-      defaultInput: this.autobase.defaultInput,
+      inputs: this.bitstream.inputs,
+      defaultInput: this.bitstream.defaultInput,
       defaultIndexes: this.defaultIndexes
     }
   }
 
-  bee (key) {
+  tree (key) {
     if (key.key) {
-      // was given a hypercore
+      // was given a unichain
       key = key.key
     }
 
@@ -57,66 +57,66 @@ export default class Autobee {
       keyBuf = Buffer.from(key, 'hex')
       keyStr = key
     }
-    if (!this._inputBees.has(keyStr)) {
-      const core = this.autobase.inputs.find(core => core.key.equals(keyBuf))
-      if (!core) throw new Error('Not an input')
-      const bee = new Hyperbee(core, {extension: false, keyEncoding: 'utf-8', valueEncoding: this._valueEncoding})
-      modifyBee(bee, this.autobase)
-      this._inputBees.set(keyStr, bee)
+    if (!this._inputTrees.has(keyStr)) {
+      const chain = this.bitstream.inputs.find(chain => chain.key.equals(keyBuf))
+      if (!chain) throw new Error('Not an input')
+      const tree = new Bittree(chain, {extension: false, keyEncoding: 'utf-8', valueEncoding: this._valueEncoding})
+      modifyTree(tree, this.bitstream)
+      this._inputTrees.set(keyStr, tree)
     }
-    return this._inputBees.get(keyStr)
+    return this._inputTrees.get(keyStr)
   }
 
-  get defaultBee () {
-    if (!this.autobase.defaultInput) throw new Error('No default input has been set')
-    return this.bee(this.autobase.defaultInput.key)
+  get defaultTree () {
+    if (!this.bitstream.defaultInput) throw new Error('No default input has treen set')
+    return this.tree(this.bitstream.defaultInput.key)
   }
 
   addInput (input) {
-    if (this.autobase.inputs.find(core => core.key.equals(input.key))) {
+    if (this.bitstream.inputs.find(chain => chain.key.equals(input.key))) {
       return
     }
-    this.autobase.addInput(input)
+    this.bitstream.addInput(input)
   }
 
   removeInput (input) {
-    if (!this.autobase.inputs.find(core => core.key.equals(input.key))) {
+    if (!this.bitstream.inputs.find(chain => chain.key.equals(input.key))) {
       return
     }
-    this._inputBees.delete(input.key.toString('hex'))
-    this.autobase.removeInput(input)
+    this._inputTrees.delete(input.key.toString('hex'))
+    this.bitstream.removeInput(input)
   }
 
   async get (...args) {
-    return await this.indexBee.get(...args)
+    return await this.indexTree.get(...args)
   }
 
   createReadStream (...args) {
-    return this.indexBee.createReadStream(...args)
+    return this.indexTree.createReadStream(...args)
   }
 
   async put (...args) {
-    return await this.defaultBee.put(...args)
+    return await this.defaultTree.put(...args)
   }
 
   async del (...args) {
-    return await this.defaultBee.del(...args)
+    return await this.defaultTree.del(...args)
   }
 
   sub (prefix, opts) {
-    const indexBeeSub = this.indexBee.sub(prefix, opts)
-    const defaultBeeSub = this.defaultBee.sub(prefix, opts)
-    indexBeeSub.put = defaultBeeSub.put.bind(defaultBeeSub)
-    indexBeeSub.del = defaultBeeSub.del.bind(defaultBeeSub)
-    return indexBeeSub
+    const indexTreeSub = this.indexTree.sub(prefix, opts)
+    const defaultTreeSub = this.defaultTree.sub(prefix, opts)
+    indexTreeSub.put = defaultTreeSub.put.bind(defaultTreeSub)
+    indexTreeSub.del = defaultTreeSub.del.bind(defaultTreeSub)
+    return indexTreeSub
   }
 
   async _apply (batch) {
-    const b = this.indexBee.batch({ update: false })
+    const b = this.indexTree.batch({ update: false })
     for (const node of batch) {
       let op = undefined
       try {
-        op = HyperbeeMessages.Node.decode(node.value)
+        op = BittreeMessages.Node.decode(node.value)
       } catch (e) {
         // skip: this is most likely the header message
         continue
@@ -135,17 +135,17 @@ export default class Autobee {
   }
 }
 
-function modifyBee (bee, autobase) {
+function modifyTree (tree, bitstream) {
   // HACK
-  // we proxy the core given to bee to abstract away all of the autobase wrapping
+  // we proxy the chain given to tree to abstract away all of the bitstream wrapping
   // there's probably a better way to do this!
   // -prf
-  const core = bee._feed
-  bee._feed = new Proxy(core, {
+  const chain = tree._feed
+  tree._feed = new Proxy(chain, {
     get (target, prop) {
       if (prop === 'append') {
         return v => {
-          return autobase.append(v, null, core)
+          return bitstream.append(v, null, chain)
         }
       } else if (prop === 'get') {
         return async (index, opts) => {
@@ -166,12 +166,12 @@ function modifyBee (bee, autobase) {
               return _valueEncoding ? _valueEncoding.decode(buf, 0, buf.length) : args[0]
             }
           }
-          return await core.get(index + 1, opts)
+          return await chain.get(index + 1, opts)
         }
       } else if (prop === 'length') {
-        return Math.max(0, core.length - 1)
+        return Math.max(0, chain.length - 1)
       }
-      return core[prop]
+      return chain[prop]
     }
   })
 }

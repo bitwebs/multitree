@@ -1,7 +1,7 @@
 {
-  "name": "autobee",
+  "name": "@web4/multitree",
   "version": "0.0.1",
-  "description": "An experiment with Autobase and Hyperbee",
+  "description": "An experiment with BitStream and BitTree",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -9,23 +9,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pfrazee/autobee.git"
+    "url": "git+https://github.com/bitwebs/multitree.git"
   },
   "author": "Paul Frazee <pfrazee@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/pfrazee/autobee/issues"
+    "url": "https://github.com/bitwebs/multitree/issues"
   },
-  "homepage": "https://github.com/pfrazee/autobee#readme",
+  "homepage": "https://github.com/bitwebs/multitree#readme",
   "dependencies": {
-    "autobase": "latest",
-    "codecs": "^2.2.0",
-    "hyperbee": "^1.6.3"
+    "@web4/bitstream": "^1.0.0",
+    "@web4/bittree": "^1.0.0",
+    "codecs": "^2.2.0"
   },
   "devDependencies": {
+    "@web4/bitswarm": "next",
+    "@web4/chainstore": "^2.0.0",
     "ava": "^3.15.0",
-    "corestore": "next",
-    "hyperswarm": "next",
     "random-access-memory": "^3.1.2"
   }
 }
